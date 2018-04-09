@@ -2,7 +2,6 @@ extern crate time as time_crate;
 extern crate itertools;
 extern crate hostname;
 extern crate dns_lookup;
-extern crate interfaces;
 
 use std::thread;
 
@@ -71,16 +70,7 @@ pub mod fs {
 pub mod net {
     use hostname;
     use dns_lookup;
-    use interfaces;
-    use std::collections::HashMap;
     use std::net::{IpAddr, Ipv4Addr, SocketAddr, ToSocketAddrs};
-
-    /// Determine IPv4 addresses of all interfaces in the system.
-    pub fn find_ipv4_addrs() -> HashMap<String, (Ipv4Addr, Ipv4Addr)> {
-        interfaces::Interface::get_all().unwrap().into_iter().filter_map(|iface| {
-            ipv4_addr(&iface.addresses).map(|addr| (iface.name.clone(), addr))
-        }).collect()
-    }
 
     /// Get best-effort fully-qualified hostname.
     pub fn getfqdn() -> String {
@@ -105,13 +95,6 @@ pub mod net {
         }
     }
 
-    /// Find the IPv4 address and netmask in the given list of addresses.
-    pub fn ipv4_addr(addresses: &[interfaces::Address]) -> Option<(Ipv4Addr, Ipv4Addr)> {
-        addresses.iter().find(|ad| ad.kind == interfaces::Kind::Ipv4)
-            .map(|ad| (unwrap_ipv4(ad.addr.unwrap().ip()),
-                       unwrap_ipv4(ad.mask.unwrap().ip())))
-    }
-
     /// Determine IPv4 address of a host name.
     pub fn lookup_ipv4(host: &str) -> Option<Ipv4Addr> {
         for addr in (host, 0).to_socket_addrs().ok()? {
@@ -122,19 +105,41 @@ pub mod net {
         None
     }
 
-    /// Get a valid interface name.
-    pub fn parse_interface(ifname: &str) -> Result<interfaces::Interface, String> {
-        match interfaces::Interface::get_by_name(ifname) {
-            Ok(Some(iface)) => Ok(iface),
-            Ok(None) => Err("no such interface".into()),
-            Err(e) => Err(format!("{}", e)),
-        }
-    }
-
     /// Determine if two addresses are in the same network, determined by a netmask.
     pub fn in_same_net<T: Into<u32>>(addr1: T, addr2: T, netmask: T) -> bool {
         let (addr1, addr2, netmask) = (addr1.into(), addr2.into(), netmask.into());
         addr1 & netmask == addr2 & netmask
+    }
+
+    #[cfg(feature = "interfaces")]
+    pub mod iface {
+        extern crate interfaces;
+        use std::collections::HashMap;
+        use std::net::Ipv4Addr;
+
+        /// Determine IPv4 addresses of all interfaces in the system.
+        pub fn find_ipv4_addrs() -> HashMap<String, (Ipv4Addr, Ipv4Addr)> {
+            interfaces::Interface::get_all().unwrap().into_iter().filter_map(|iface| {
+                ipv4_addr(&iface.addresses).map(|addr| (iface.name.clone(), addr))
+            }).collect()
+        }
+
+        /// Find the IPv4 address and netmask in the given list of addresses.
+        pub fn ipv4_addr(addresses: &[interfaces::Address]) -> Option<(Ipv4Addr, Ipv4Addr)> {
+            addresses.iter().find(|ad| ad.kind == interfaces::Kind::Ipv4)
+                .map(|ad| (super::unwrap_ipv4(ad.addr.unwrap().ip()),
+                           super::unwrap_ipv4(ad.mask.unwrap().ip())))
+        }
+
+        /// Get a valid interface name.
+        pub fn parse_interface(ifname: &str) -> Result<interfaces::Interface, String> {
+            match interfaces::Interface::get_by_name(ifname) {
+                Ok(Some(iface)) => Ok(iface),
+                Ok(None) => Err("no such interface".into()),
+                Err(e) => Err(format!("{}", e)),
+            }
+        }
+
     }
 }
 
