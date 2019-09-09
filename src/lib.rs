@@ -1,8 +1,3 @@
-extern crate time as time_crate;
-extern crate itertools;
-extern crate hostname;
-extern crate dns_lookup;
-
 use std::thread;
 
 /// Spawn a thread with a given name.
@@ -111,41 +106,50 @@ pub mod net {
         addr1 & netmask == addr2 & netmask
     }
 
-    #[cfg(feature = "interfaces")]
     pub mod iface {
-        extern crate interfaces;
         use std::collections::HashMap;
-        use std::net::Ipv4Addr;
+        use std::net::{Ipv4Addr};
+        use systemstat::{Platform, data::IpAddr};
 
         /// Determine IPv4 addresses of all interfaces in the system.
         pub fn find_ipv4_addrs() -> HashMap<String, (Ipv4Addr, Ipv4Addr)> {
-            interfaces::Interface::get_all().unwrap().into_iter().filter_map(|iface| {
-                ipv4_addr(&iface.addresses).map(|addr| (iface.name.clone(), addr))
+            systemstat::System::new().networks().unwrap().into_iter().filter_map(|(name, net)| {
+                ipv4_addr(&net.addrs).map(|addr| (name, addr))
             }).collect()
         }
 
-        /// Find the IPv4 address and netmask in the given list of addresses.
-        pub fn ipv4_addr(addresses: &[interfaces::Address]) -> Option<(Ipv4Addr, Ipv4Addr)> {
-            addresses.iter().find(|ad| ad.kind == interfaces::Kind::Ipv4)
-                .map(|ad| (super::unwrap_ipv4(ad.addr.unwrap().ip()),
-                           super::unwrap_ipv4(ad.mask.unwrap().ip())))
-        }
-
-        /// Get a valid interface name.
-        pub fn parse_interface(ifname: &str) -> Result<interfaces::Interface, String> {
-            match interfaces::Interface::get_by_name(ifname) {
-                Ok(Some(iface)) => Ok(iface),
-                Ok(None) => Err("no such interface".into()),
-                Err(e) => Err(format!("{}", e)),
+        fn systemstat_ipv4(ip: &IpAddr) -> Ipv4Addr {
+            match ip {
+                IpAddr::V4(v4) => *v4,
+                _ => unreachable!()
             }
         }
 
+        /// Find the IPv4 address and netmask in the given list of addresses.
+        pub fn ipv4_addr(addresses: &[systemstat::data::NetworkAddrs]) -> Option<(Ipv4Addr, Ipv4Addr)> {
+            addresses.iter().filter_map(|ad| {
+                if let IpAddr::V4(_) = ad.addr {
+                    Some((systemstat_ipv4(&ad.addr), systemstat_ipv4(&ad.netmask)))
+                } else {
+                    None
+                }
+            }).next()
+        }
+
+        /// Get a valid interface name.
+        pub fn parse_interface(ifname: &str) -> Result<systemstat::data::Network, String> {
+            match systemstat::System::new().networks() {
+                Err(e) => Err(format!("{}", e)),
+                Ok(mut map) => match map.remove(ifname) {
+                    Some(iface) => Ok(iface),
+                    None => Err("no such interface".into()),
+                }
+            }
+        }
     }
 }
 
 pub mod time {
-    use time_crate as time;
-
     /// Local time as floating seconds since the epoch.
     pub fn localtime() -> f64 {
         let ts = time::get_time();
