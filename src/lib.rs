@@ -69,7 +69,9 @@ pub mod net {
 
     /// Get best-effort fully-qualified hostname.
     pub fn getfqdn() -> String {
-        let hostname = hostname::get_hostname().unwrap_or_else(|| "localhost".into());
+        let hostname = hostname::get().ok()
+            .map(|s| s.to_string_lossy().into_owned())
+            .unwrap_or_else(|| "localhost".into());
         let mut candidates = Vec::new();
         for addr in dns_lookup::lookup_host(&hostname).unwrap_or_default() {
             if let Ok(name) = dns_lookup::lookup_addr(&addr) {
