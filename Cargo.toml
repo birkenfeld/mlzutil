@@ -6,6 +6,7 @@ version = "0.3.0"
 license = "MIT/Apache-2.0"
 authors = ["Georg Brandl <g.brandl@fz-juelich.de>"]
 documentation = "http://docs.rs/mlzutil"
+rust-version = "1.63"
 edition = "2021"
 
 [dependencies]
