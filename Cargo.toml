@@ -10,7 +10,7 @@ rust-version = "1.63"
 edition = "2021"
 
 [dependencies]
-time = "=0.3.20"  # due to 1.63.0
+chrono = "0.4.38"
 dns-lookup = "2.0.2"
 hostname = "0.3.1"
 itertools = "0.10.0"

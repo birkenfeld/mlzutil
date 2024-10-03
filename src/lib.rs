@@ -48,7 +48,7 @@ pub mod fs {
     /// Write a PID file.
     pub fn write_pidfile(pid_path: impl AsRef<Path>, basename: &str) -> io::Result<()> {
         ensure_dir(&pid_path)?;
-        let file = pid_path.as_ref().join(&format!("{}.pid", basename));
+        let file = pid_path.as_ref().join(format!("{}.pid", basename));
         // TODO: use std::process::id when available
         let my_pid = fs::read_link("/proc/self")?;
         let my_pid = my_pid.to_str().unwrap();
@@ -57,7 +57,7 @@ pub mod fs {
 
     /// Remove a PID file.
     pub fn remove_pidfile(pid_path: impl AsRef<Path>, basename: &str) {
-        let file = Path::new(pid_path.as_ref()).join(&format!("{}.pid", basename));
+        let file = Path::new(pid_path.as_ref()).join(format!("{}.pid", basename));
         let _ = fs::remove_file(file);
     }
 }
@@ -152,21 +152,22 @@ pub mod net {
 }
 
 pub mod time {
+    use chrono::{DateTime, Utc};
+
     /// Local time as floating seconds since the epoch.
     pub fn localtime() -> f64 {
-        to_timefloat(time::OffsetDateTime::now_utc())
+        to_timefloat(Utc::now())
     }
 
     /// Float time to timespec.
-    pub fn to_timespec(t: f64) -> time::OffsetDateTime {
-        let itime = (1e9 * t) as i128;
-        time::OffsetDateTime::from_unix_timestamp_nanos(itime)
-            .unwrap_or(time::OffsetDateTime::UNIX_EPOCH)
+    pub fn to_timespec(t: f64) -> DateTime<Utc> {
+        let itime = (1e9 * t) as i64;
+        DateTime::from_timestamp_nanos(itime)
     }
 
     /// Time to floating.
-    pub fn to_timefloat(t: time::OffsetDateTime) -> f64 {
-        let ts = t.unix_timestamp_nanos();
+    pub fn to_timefloat(t: DateTime<Utc>) -> f64 {
+        let ts = t.timestamp_nanos_opt().unwrap();
         (ts as f64) / 1_000_000_000.
     }
 }
